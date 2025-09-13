@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Zap, Coins, Globe, Download, Loader2, CheckCircle, AlertCircle, QrCode, Unlink } from 'lucide-react';
+import { Upload, Zap, Coins, Globe, Download, Loader2, CheckCircle, AlertCircle, QrCode, Unlink, Copy, X } from 'lucide-react';
 import OpenAI from 'openai';
 import { useWalletConnect } from '../hooks/useWalletConnect';
 
@@ -12,6 +12,7 @@ const NFTGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mintingData, setMintingData] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // Wallet Connect hook
   const {
@@ -24,7 +25,6 @@ const NFTGenerator = () => {
     isConnected,
     connectWallet: wcConnectWallet,
     disconnectWallet,
-    generateUri,
     setUri,
   } = useWalletConnect();
 
@@ -149,6 +149,28 @@ const NFTGenerator = () => {
     }
   };
 
+  // Generate QR code URI for pairing
+  const generateUri = async () => {
+    if (!signClient) return;
+
+    try {
+      const { uri: newUri } = await signClient.connect({
+        requiredNamespaces: {
+          bch: {
+            methods: ['bch_signMessage', 'bch_signTransaction', 'bch_sendTransaction'],
+            chains: ['bch:0'],
+            events: ['accountsChanged', 'chainChanged']
+          }
+        }
+      });
+      setUri(newUri);
+      setModalOpen(true);
+    } catch (err) {
+      console.error('Error generating URI:', err);
+      setError('Failed to generate pairing URI');
+    }
+  };
+
   // Wallet Connect connection
   const connectWallet = async () => {
     setLoading(true);
@@ -228,6 +250,15 @@ const NFTGenerator = () => {
     setIpfsHash('');
     setNftTxId('');
     setError('');
+  };
+
+  const copyUri = () => {
+    navigator.clipboard.writeText(uri);
+    alert('URI copiado al portapapeles');
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
   };
 
   const StepIndicator = ({ currentStep }) => {
@@ -575,6 +606,40 @@ const NFTGenerator = () => {
             </div>
           </div>
         </div>
+
+        {/* QR Modal */}
+        {modalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Conecta tu wallet BCH</h3>
+                <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={copyUri}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded flex items-center justify-center"
+                >
+                  <Copy size={16} className="mr-2" />
+                  Copiar URI
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-2">
+                Pega este URI en tu wallet Cashonize para conectar:
+              </p>
+
+              <div>
+                <div className="bg-gray-100 p-2 rounded text-xs font-mono break-all">
+                  {uri}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
