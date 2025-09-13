@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Zap, Coins, Globe, Download, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Zap, Coins, Globe, Download, Loader2, CheckCircle, AlertCircle, QrCode, Unlink } from 'lucide-react';
 import OpenAI from 'openai';
+import { useWalletConnect } from '../hooks/useWalletConnect';
 
 const NFTGenerator = () => {
   const [step, setStep] = useState(1);
@@ -10,9 +11,21 @@ const NFTGenerator = () => {
   const [nftTxId, setNftTxId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
   const [mintingData, setMintingData] = useState(null);
+
+  // Wallet Connect hook
+  const {
+    session,
+    uri,
+    isConnecting,
+    error: wcError,
+    walletAddress,
+    isConnected,
+    connectWallet: wcConnectWallet,
+    disconnectWallet,
+    generateUri,
+    setUri,
+  } = useWalletConnect();
 
   // Preparar datos para minting cuando se complete el paso 2
   useEffect(() => {
@@ -135,34 +148,25 @@ const NFTGenerator = () => {
     }
   };
 
-  // Conexión funcional con wallet BCH (simulación mejorada)
+  // Wallet Connect connection
   const connectWallet = async () => {
     setLoading(true);
     setError('');
 
     try {
-      console.log('Intentando conectar con wallet BCH...');
-
-      // Simular proceso de conexión real
-      // En producción, aquí iría la integración con Badger Wallet o Electron Cash
-      setTimeout(() => {
-        setWalletConnected(true);
-        // Dirección BCH realista para simulación
-        setWalletAddress('bitcoincash:qz9tz7xh8q8f6v0z7x9v8q8f6v0z7x9v8q8f6v0z7x9v8q8f6v');
-        console.log('Wallet conectada exitosamente');
-        setLoading(false);
-      }, 2000);
-
+      console.log('Connecting with Wallet Connect...');
+      await wcConnectWallet();
+      setLoading(false);
     } catch (err) {
-      console.error('Error conectando wallet:', err);
-      setError('Error conectando wallet: ' + err.message);
+      console.error('Error connecting wallet:', err);
+      setError('Error connecting wallet: ' + err.message);
       setLoading(false);
     }
   };
 
   // Minting real de NFT con CashTokens usando Electron Cash
   const mintNFT = async () => {
-    if (!walletConnected || !mintingData) {
+    if (!isConnected || !mintingData) {
       setError('Por favor conecta tu wallet y genera una imagen primero');
       return;
     }
@@ -293,10 +297,10 @@ const NFTGenerator = () => {
         <StepIndicator currentStep={step} />
 
         {/* Error Display */}
-        {error && (
+        {(error || wcError) && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
             <AlertCircle className="text-red-500 mr-2" size={20} />
-            <span className="text-red-700">{error}</span>
+            <span className="text-red-700">{error || wcError}</span>
           </div>
         )}
 
@@ -417,29 +421,68 @@ const NFTGenerator = () => {
               </div>
 
               <div className="space-y-4">
-                {!walletConnected ? (
-                  <button
-                    onClick={connectWallet}
-                    disabled={loading}
-                    className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white px-8 py-3 rounded-lg font-semibold transition-all flex items-center mx-auto"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="animate-spin mr-2" size={20} />
-                        Conectando...
-                      </>
-                    ) : (
-                      <>
-                        <Coins className="mr-2" size={20} />
-                        Conectar Wallet BCH
-                      </>
+                {!isConnected ? (
+                  <div className="space-y-4">
+                    <button
+                      onClick={generateUri}
+                      disabled={loading || isConnecting}
+                      className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-8 py-3 rounded-lg font-semibold transition-all flex items-center mx-auto"
+                    >
+                      <QrCode className="mr-2" size={20} />
+                      Generar Código QR
+                    </button>
+
+                    {uri && (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600 mb-2">URI de conexión:</p>
+                        <p className="font-mono text-xs break-all bg-white p-2 rounded border">{uri}</p>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Escanea este código QR con tu wallet BCH compatible con Wallet Connect
+                        </p>
+                      </div>
                     )}
-                  </button>
+
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-2">O pega el URI de tu wallet:</p>
+                      <input
+                        type="text"
+                        value={uri}
+                        onChange={(e) => setUri(e.target.value)}
+                        placeholder="wc:..."
+                        className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+
+                    <button
+                      onClick={connectWallet}
+                      disabled={loading || isConnecting || !uri}
+                      className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white px-8 py-3 rounded-lg font-semibold transition-all flex items-center mx-auto"
+                    >
+                      {loading || isConnecting ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2" size={20} />
+                          Conectando...
+                        </>
+                      ) : (
+                        <>
+                          <Coins className="mr-2" size={20} />
+                          Conectar Wallet BCH
+                        </>
+                      )}
+                    </button>
+                  </div>
                 ) : (
                   <div>
                     <div className="flex items-center justify-center mb-4">
                       <CheckCircle className="text-green-500 mr-2" size={24} />
                       <span className="text-green-600 font-semibold">Wallet Conectada</span>
+                      <button
+                        onClick={disconnectWallet}
+                        className="ml-2 text-red-500 hover:text-red-700"
+                        title="Desconectar wallet"
+                      >
+                        <Unlink size={16} />
+                      </button>
                     </div>
                     {walletAddress && (
                       <div className="bg-green-50 p-3 rounded-lg mb-4">
@@ -535,9 +578,9 @@ const NFTGenerator = () => {
               <p className="font-semibold text-blue-800">💎 CashTokens</p>
               <p className="text-blue-700">Lógica preparada para minting real</p>
             </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <p className="font-semibold text-orange-800">🔗 Wallet Simulada</p>
-              <p className="text-orange-700">Funcional, preparada para integración real</p>
+            <div className="p-3 bg-green-50 rounded-lg">
+              <p className="font-semibold text-green-800">🔗 Wallet Connect v2</p>
+              <p className="text-green-700">Integración completa con wallets BCH</p>
             </div>
           </div>
         </div>
