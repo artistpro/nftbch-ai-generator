@@ -187,7 +187,7 @@ const NFTGenerator = () => {
     }
   };
 
-  // Simulación de minting de NFT con CashTokens
+  // Minting real de NFT con CashTokens usando Electron Cash RPC
   const mintNFT = async () => {
     if (!isConnected || !mintingData) {
       setError('Por favor conecta tu wallet y genera una imagen primero');
@@ -198,16 +198,53 @@ const NFTGenerator = () => {
     setError('');
 
     try {
-      // Simular el proceso de minting
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simular delay
+      // Preparar la transacción CashTokens
+      const tokenId = `0x${Math.random().toString(16).substring(2, 66)}`; // Token ID único
 
-      // Generar un TXID simulado
-      const simulatedTxId = `bch_tx_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      // Crear la transacción usando Electron Cash RPC
+      const txData = {
+        outputs: [
+          {
+            address: walletAddress,
+            amount: 1000, // Monto mínimo en satoshis
+            token: {
+              tokenId: tokenId,
+              tokenType: 0x81, // NFT type
+              amount: 1,
+              metadata: mintingData // Los metadatos del NFT
+            }
+          }
+        ]
+      };
 
-      setNftTxId(simulatedTxId);
-      setStep(4);
-      setLoading(false);
-      console.log('NFT minteado exitosamente (simulado) con TXID:', simulatedTxId);
+      // Enviar la transacción usando Electron Cash RPC
+      const response = await fetch('http://localhost:7777', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'payto',
+          params: [txData]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error enviando transacción a Electron Cash. Asegúrate de que Electron Cash esté ejecutándose con RPC habilitado.');
+      }
+
+      const result = await response.json();
+
+      if (result.result) {
+        setNftTxId(result.result);
+        setStep(4);
+        setLoading(false);
+        console.log('NFT minteado exitosamente con TXID:', result.result);
+      } else {
+        throw new Error(result.error?.message || 'Error desconocido en la transacción');
+      }
 
     } catch (err) {
       console.error('Error minteando NFT:', err);
