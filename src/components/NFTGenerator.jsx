@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, Zap, Coins, Globe, Download, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import OpenAI from 'openai';
-import BCHJS from '@psf/bch-js';
 
 const NFTGenerator = () => {
   const [step, setStep] = useState(1);
@@ -12,9 +11,6 @@ const NFTGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
-
-  // BCH instance
-  const bch = new BCHJS();
 
   // Generación de imagen con Stability AI
   const generateImage = async () => {
@@ -175,7 +171,7 @@ const NFTGenerator = () => {
       // Simular delay de transacción
       setTimeout(() => {
         // Generar un TXID simulado
-        const mockTxId = bch.Crypto.randomBytes(32).toString('hex');
+        const mockTxId = Math.random().toString(36).substring(2, 20);
         setNftTxId(mockTxId);
         setStep(4);
         setLoading(false);
