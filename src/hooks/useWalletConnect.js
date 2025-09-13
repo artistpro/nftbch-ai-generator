@@ -106,7 +106,7 @@ export const useWalletConnect = () => {
         requiredNamespaces: {
           bch: {
             methods: ['bch_signMessage', 'bch_signTransaction', 'bch_sendTransaction'],
-            chains: ['bch:mainnet'],
+            chains: ['bch:0'],
             events: ['accountsChanged', 'chainChanged']
           }
         }
