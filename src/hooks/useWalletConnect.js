@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Core } from '@walletconnect/core';
 import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
-import { Web3Wallet } from '@reown/walletkit';
+import { WalletKit } from '@reown/walletkit';
 
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
 
@@ -22,7 +22,7 @@ export const useWalletConnect = () => {
           relayUrl: 'wss://relay.walletconnect.com',
         });
 
-        const web3walletInstance = await Web3Wallet.init({
+        const web3walletInstance = await WalletKit.init({
           core,
           metadata: {
             name: 'BCH NFT Generator',
