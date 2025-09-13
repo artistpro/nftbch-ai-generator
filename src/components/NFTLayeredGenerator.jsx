@@ -237,21 +237,28 @@ const NFTLayeredGenerator = () => {
    * @param {string} svgString The SVG markup as a string.
    * @returns {Promise<HTMLImageElement>} A promise resolving to an Image.
    */
-  const svgToImage = (svgString) => {
+  const svgToImage = (source) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(svgBlob);
-
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(img);
-      };
-      img.onerror = (e) => {
-        URL.revokeObjectURL(url);
-        reject(e);
-      };
-      img.src = url;
+      // Determine whether the source is an inline SVG or a URL/data URL
+      if (typeof source === 'string' && source.trim().startsWith('<svg')) {
+        const svgBlob = new Blob([source], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(svgBlob);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(img);
+        };
+        img.onerror = (e) => {
+          URL.revokeObjectURL(url);
+          reject(e);
+        };
+        img.src = url;
+      } else {
+        // Assume it's a normal image URL or a data URI (e.g. uploaded PNG)
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = source;
+      }
     });
   };
 
