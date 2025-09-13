@@ -12,15 +12,15 @@ const NFTGenerator = () => {
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
 
-  // Generación de imagen con Replicate (API gratuita con créditos)
+  // Generación de imagen con Stability AI
   const generateImage = async () => {
     if (!prompt.trim()) {
       setError('Por favor ingresa un prompt para generar la imagen');
       return;
     }
 
-    if (!import.meta.env.VITE_REPLICATE_API_TOKEN) {
-      setError('API token de Replicate no configurado. Contacta al administrador.');
+    if (!import.meta.env.VITE_STABILITY_API_KEY) {
+      setError('API key de Stability AI no configurada. Contacta al administrador.');
       return;
     }
 
@@ -28,53 +28,41 @@ const NFTGenerator = () => {
     setError('');
 
     try {
-      // Crear la predicción
-      const response = await fetch('https://api.replicate.com/v1/predictions', {
+      const response = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
         method: 'POST',
         headers: {
-          'Authorization': `Token ${import.meta.env.VITE_REPLICATE_API_TOKEN}`,
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_STABILITY_API_KEY}`,
         },
         body: JSON.stringify({
-          version: 'db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf',
-          input: {
-            prompt: prompt,
-            width: 1024,
-            height: 1024,
-            num_outputs: 1,
-            guidance_scale: 7.5,
-            num_inference_steps: 20,
-          },
+          text_prompts: [{ text: prompt }],
+          cfg_scale: 7,
+          height: 1024,
+          width: 1024,
+          samples: 1,
+          steps: 20,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData}`);
       }
 
-      const prediction = await response.json();
+      const result = await response.json();
 
-      // Esperar a que se complete la predicción
-      let result;
-      do {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo
-        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-          headers: {
-            'Authorization': `Token ${import.meta.env.VITE_REPLICATE_API_TOKEN}`,
-          },
-        });
-        result = await statusResponse.json();
-      } while (result.status !== 'succeeded' && result.status !== 'failed');
-
-      if (result.status === 'succeeded' && result.output && result.output[0]) {
+      if (result.artifacts && result.artifacts[0]) {
+        const base64Image = result.artifacts[0].base64;
+        const imageUrl = `data:image/png;base64,${base64Image}`;
         setGeneratedImage({
-          url: result.output[0],
+          url: imageUrl,
           prompt: prompt
         });
         setStep(2);
         setLoading(false);
       } else {
-        throw new Error('La generación de imagen falló');
+        throw new Error('No se recibió imagen en la respuesta');
       }
 
     } catch (err) {
