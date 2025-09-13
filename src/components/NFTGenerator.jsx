@@ -467,11 +467,11 @@ const NFTGenerator = () => {
           <div className="grid md:grid-cols-3 gap-4 text-sm">
             <div className="p-3 bg-green-50 rounded-lg">
               <p className="font-semibold text-green-800">✅ APIs reales</p>
-              <p className="text-green-700">Stability AI, Pinata IPFS, BCHJS integradas</p>
+              <p className="text-green-700">Stability AI, Pinata IPFS funcionando</p>
             </div>
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="font-semibold text-blue-800">💎 CashTokens</p>
-              <p className="text-blue-700">Preparado para minting de NFTs en BCH</p>
+              <p className="text-blue-700">Minting simulado, preparado para BCH</p>
             </div>
             <div className="p-3 bg-yellow-50 rounded-lg">
               <p className="font-semibold text-yellow-800">🔗 Wallet Integration</p>
