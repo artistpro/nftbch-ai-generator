@@ -187,9 +187,9 @@ const NFTGenerator = () => {
     }
   };
 
-  // Minting real de NFT con CashTokens usando WalletConnect
+  // Simulación de minting de NFT con CashTokens
   const mintNFT = async () => {
-    if (!isConnected || !mintingData || !session || !signClient) {
+    if (!isConnected || !mintingData) {
       setError('Por favor conecta tu wallet y genera una imagen primero');
       return;
     }
@@ -198,43 +198,16 @@ const NFTGenerator = () => {
     setError('');
 
     try {
-      // Preparar la transacción CashTokens
-      const tokenId = `0x${Math.random().toString(16).substring(2, 66)}`; // Token ID único
+      // Simular el proceso de minting
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simular delay
 
-      // Crear la transacción CashTokens
-      const txData = {
-        outputs: [
-          {
-            address: walletAddress,
-            amount: 1000, // Monto mínimo en satoshis
-            token: {
-              tokenId: tokenId,
-              tokenType: 0x81, // NFT type
-              amount: 1,
-              metadata: mintingData // Los metadatos del NFT
-            }
-          }
-        ]
-      };
+      // Generar un TXID simulado
+      const simulatedTxId = `bch_tx_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
-      // Usar WalletConnect para enviar la transacción
-      const result = await signClient.request({
-        topic: session.topic,
-        chainId: 0,
-        request: {
-          method: 'sendTransaction',
-          params: [txData]
-        }
-      });
-
-      if (result) {
-        setNftTxId(result);
-        setStep(4);
-        setLoading(false);
-        console.log('NFT minteado exitosamente con TXID:', result);
-      } else {
-        throw new Error('No se recibió TXID de la transacción');
-      }
+      setNftTxId(simulatedTxId);
+      setStep(4);
+      setLoading(false);
+      console.log('NFT minteado exitosamente (simulado) con TXID:', simulatedTxId);
 
     } catch (err) {
       console.error('Error minteando NFT:', err);
