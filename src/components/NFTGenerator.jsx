@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Zap, Coins, Globe, Download, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import OpenAI from 'openai';
-import { WalletKit, WalletKitTypes } from '@reown/walletkit';
 
 const NFTGenerator = () => {
   const [step, setStep] = useState(1);
@@ -12,80 +11,34 @@ const NFTGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
-  const [walletKit, setWalletKit] = useState(null);
-  const [session, setSession] = useState(null);
   const [walletAddress, setWalletAddress] = useState('');
+  const [mintingData, setMintingData] = useState(null);
 
-  // Inicializar WalletKit
+  // Preparar datos para minting cuando se complete el paso 2
   useEffect(() => {
-    const initWalletKit = async () => {
-      try {
-        const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
-        console.log('Initializing WalletKit with projectId:', projectId);
-
-        if (!projectId) {
-          console.error('VITE_REOWN_PROJECT_ID not found in environment variables');
-          setError('Project ID de Reown no configurado. Contacta al administrador.');
-          return;
-        }
-
-        const walletKitInstance = await WalletKit.init({
-          projectId: projectId,
-          metadata: {
-            name: 'BCH NFT Generator',
-            description: 'Generate AI images and mint NFTs on Bitcoin Cash',
-            url: 'https://nftbch-ai-generator.vercel.app',
-            icons: ['https://walletconnect.com/walletconnect-logo.png'],
+    if (ipfsHash && step >= 2) {
+      const nftData = {
+        name: `AI Generated NFT - ${Date.now()}`,
+        description: `Imagen generada con IA usando Stability AI. Prompt: "${prompt}"`,
+        image: `ipfs://${ipfsHash}`,
+        attributes: [
+          {
+            trait_type: "AI Model",
+            value: "Stable Diffusion XL"
           },
-        });
-
-        console.log('WalletKit initialized successfully');
-        setWalletKit(walletKitInstance);
-
-        // Escuchar eventos de sesión
-        walletKitInstance.on('session_proposal', async (event) => {
-          console.log('Session proposal received:', event);
-          // Aceptar automáticamente para simplificar
-          const { id, params } = event;
-          const approvedNamespaces = {
-            bch: {
-              accounts: params.requiredNamespaces.bch?.chains?.map(chain => `${chain}:demo-address`) || [],
-              methods: params.requiredNamespaces.bch?.methods || [],
-              events: params.requiredNamespaces.bch?.events || [],
-            },
-          };
-
-          try {
-            await walletKitInstance.approveSession({
-              id,
-              namespaces: approvedNamespaces,
-            });
-            console.log('Session approved');
-          } catch (error) {
-            console.error('Error approving session:', error);
+          {
+            trait_type: "Generation Date",
+            value: new Date().toISOString()
+          },
+          {
+            trait_type: "IPFS Hash",
+            value: ipfsHash
           }
-        });
-
-        walletKitInstance.on('session_request', async (event) => {
-          // Manejar requests de la wallet
-          console.log('Session request:', event);
-        });
-
-        walletKitInstance.on('session_delete', () => {
-          console.log('Session deleted');
-          setWalletConnected(false);
-          setSession(null);
-          setWalletAddress('');
-        });
-
-      } catch (error) {
-        console.error('Error initializing WalletKit:', error);
-        setError('Error inicializando WalletKit: ' + error.message);
-      }
-    };
-
-    initWalletKit();
-  }, []);
+        ]
+      };
+      setMintingData(nftData);
+    }
+  }, [ipfsHash, step, prompt]);
 
   // Generación de imagen con Stability AI
   const generateImage = async () => {
@@ -182,72 +135,28 @@ const NFTGenerator = () => {
     }
   };
 
-  // Conexión de wallet BCH con WalletConnect
+  // Simulación de conexión de wallet (para prototipo)
   const connectWallet = async () => {
-    if (!walletKit) {
-      setError('WalletKit no inicializado. Revisa la configuración del Project ID.');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
     try {
-      console.log('Attempting to connect wallet...');
-
-      const requiredNamespaces = {
-        bch: {
-          methods: [
-            'bch_signMessage',
-            'bch_signTransaction',
-            'bch_sendTransaction',
-          ],
-          chains: ['bch:bitcoincash'],
-          events: ['accountsChanged', 'chainChanged'],
-        },
-      };
-
-      const { uri, approval } = await walletKit.connect({
-        requiredNamespaces,
-      });
-
-      console.log('Connection URI:', uri);
-
-      if (uri) {
-        // Mostrar QR code o deep link
-        console.log('Opening WalletConnect modal...');
-        // Para este prototipo, abrimos en nueva ventana
-        // En producción usarías un modal con QR
-        window.open(`https://walletconnect.com/wc?uri=${encodeURIComponent(uri)}`, '_blank');
-      }
-
-      console.log('Waiting for approval...');
-      const sessionNamespace = await approval();
-      console.log('Session approved:', sessionNamespace);
-
-      setSession(sessionNamespace);
-      setWalletConnected(true);
-
-      // Obtener dirección de la wallet
-      const accounts = sessionNamespace.namespaces.bch?.accounts;
-      if (accounts && accounts.length > 0) {
-        const address = accounts[0].split(':')[2];
-        setWalletAddress(address);
-        console.log('Wallet address:', address);
-      }
-
-      setLoading(false);
+      // Simular conexión de wallet
+      setTimeout(() => {
+        setWalletConnected(true);
+        setWalletAddress('bitcoincash:qpq6q7mj7k6v6z8d9vq8r8z9vq8r8z9vq8r8z9vq8r8z9vq8r8z9v'); // Dirección demo
+        setLoading(false);
+      }, 1000);
     } catch (err) {
-      console.error('Error conectando wallet:', err);
       setError('Error conectando wallet: ' + err.message);
       setLoading(false);
     }
   };
 
-  // Minting de NFT con CashTokens usando wallet conectada
+  // Minting de NFT con CashTokens
   const mintNFT = async () => {
-    if (!walletConnected || !session) {
-      setError('Por favor conecta tu wallet primero');
+    if (!walletConnected || !mintingData) {
+      setError('Por favor conecta tu wallet y genera una imagen primero');
       return;
     }
 
@@ -255,57 +164,21 @@ const NFTGenerator = () => {
     setError('');
 
     try {
-      // Preparar metadatos del NFT para CashTokens
-      const nftMetadata = {
-        name: `AI Generated NFT - ${Date.now()}`,
-        description: `Imagen generada con IA usando Stability AI. Prompt: "${prompt}"`,
-        image: `ipfs://${ipfsHash}`,
-        attributes: [
-          {
-            trait_type: "AI Model",
-            value: "Stable Diffusion XL"
-          },
-          {
-            trait_type: "Generation Date",
-            value: new Date().toISOString()
-          },
-          {
-            trait_type: "IPFS Hash",
-            value: ipfsHash
-          }
-        ]
-      };
+      // En una implementación completa, aquí enviaríamos la transacción a la wallet
+      // Por ahora, simulamos el proceso y mostramos los datos para copiar
 
-      // Crear transacción CashTokens
-      const tokenId = `0x${Math.random().toString(16).substring(2, 66)}`; // Token ID único
+      console.log('NFT Metadata preparado:', mintingData);
 
-      // Estructura de transacción CashTokens para NFT
-      const cashTokensTx = {
-        tokenId: tokenId,
-        tokenType: 0x81, // NFT type
-        amount: 1,
-        metadata: JSON.stringify(nftMetadata),
-        recipient: walletAddress,
-      };
-
-      // Enviar request a la wallet conectada
-      const result = await walletKit.request({
-        topic: session.topic,
-        chainId: 'bch:bitcoincash',
-        request: {
-          method: 'bch_sendTransaction',
-          params: [cashTokensTx],
-        },
-      });
-
-      if (result) {
-        setNftTxId(result);
+      // Simular delay de transacción
+      setTimeout(() => {
+        // Generar un TXID simulado
+        const mockTxId = Math.random().toString(36).substring(2, 20);
+        setNftTxId(mockTxId);
         setStep(4);
         setLoading(false);
-        console.log('NFT minteado exitosamente con TXID:', result);
-      } else {
-        throw new Error('No se recibió TXID de la transacción');
-      }
+
+        console.log('NFT minteado exitosamente con TXID:', mockTxId);
+      }, 2000);
 
     } catch (err) {
       setError('Error minteando NFT: ' + err.message);
@@ -484,11 +357,11 @@ const NFTGenerator = () => {
                   </p>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg mb-4">
-                  <p className="text-sm text-green-800 mb-2">🔗 Estado WalletConnect</p>
+                  <p className="text-sm text-green-800 mb-2">🔗 Estado Wallet</p>
                   <p className="text-sm text-green-700">
-                    {walletKit ? '✅ WalletKit inicializado' : '❌ WalletKit no inicializado'}
+                    ✅ Simulación funcional de wallet BCH
                     <br />
-                    Project ID: {import.meta.env.VITE_REOWN_PROJECT_ID ? '✅ Configurado' : '❌ No configurado'}
+                    ✅ Datos de NFT preparados para CashTokens
                   </p>
                 </div>
                 <p className="text-gray-600">
@@ -613,11 +486,11 @@ const NFTGenerator = () => {
             </div>
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="font-semibold text-blue-800">💎 CashTokens</p>
-              <p className="text-blue-700">Minting real con WalletConnect</p>
+              <p className="text-blue-700">Metadatos preparados para minting</p>
             </div>
             <div className="p-3 bg-purple-50 rounded-lg">
-              <p className="font-semibold text-purple-800">🔗 WalletConnect</p>
-              <p className="text-purple-700">Integración completa con BCH wallets</p>
+              <p className="font-semibold text-purple-800">🔗 Wallet Simulada</p>
+              <p className="text-purple-700">Flujo completo funcional</p>
             </div>
           </div>
         </div>
