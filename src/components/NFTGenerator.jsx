@@ -12,21 +12,15 @@ const NFTGenerator = () => {
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
 
-  // OpenAI instance
-  const openai = import.meta.env.VITE_OPENAI_API_KEY ? new OpenAI({
-    apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-    dangerouslyAllowBrowser: true,
-  }) : null;
-
-  // Generación de imagen con OpenAI
+  // Generación de imagen con Stability AI (API gratuita)
   const generateImage = async () => {
     if (!prompt.trim()) {
       setError('Por favor ingresa un prompt para generar la imagen');
       return;
     }
 
-    if (!openai) {
-      setError('API key de OpenAI no configurada. Contacta al administrador.');
+    if (!import.meta.env.VITE_STABILITY_API_KEY) {
+      setError('API key de Stability AI no configurada. Contacta al administrador.');
       return;
     }
 
@@ -34,21 +28,41 @@ const NFTGenerator = () => {
     setError('');
 
     try {
-      const response = await openai.images.generate({
-        model: 'dall-e-3',
-        prompt: prompt,
-        size: '1024x1024',
-        quality: 'standard',
-        n: 1,
+      const response = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_STABILITY_API_KEY}`,
+        },
+        body: JSON.stringify({
+          text_prompts: [{ text: prompt }],
+          cfg_scale: 7,
+          height: 1024,
+          width: 1024,
+          samples: 1,
+          steps: 20,
+        }),
       });
 
-      const imageUrl = response.data[0].url;
-      setGeneratedImage({
-        url: imageUrl,
-        prompt: prompt
-      });
-      setStep(2);
-      setLoading(false);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.artifacts && result.artifacts[0]) {
+        const base64Image = result.artifacts[0].base64;
+        const imageUrl = `data:image/png;base64,${base64Image}`;
+        setGeneratedImage({
+          url: imageUrl,
+          prompt: prompt
+        });
+        setStep(2);
+        setLoading(false);
+      } else {
+        throw new Error('No se recibió imagen en la respuesta');
+      }
 
     } catch (err) {
       setError('Error generando la imagen: ' + err.message);
