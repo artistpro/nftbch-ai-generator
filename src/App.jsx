@@ -1,14 +1,12 @@
 import React from 'react';
-import NFTLayeredGenerator from './components/NFTLayeredGenerator.jsx';
+import NFTGenerator from './components/NFTGenerator.jsx';
 
 /**
- * The main application component. This component simply renders the
- * NFTLayeredGenerator which contains all the functionality for
- * generating layered NFT creatures based on SVG layers and user
- * uploads.
+ * The main application component. This component renders the
+ * NFTGenerator for creating AI-generated NFTs on Bitcoin Cash.
  */
 const App = () => {
-  return <NFTLayeredGenerator />;
+  return <NFTGenerator />;
 };
 
 export default App;
