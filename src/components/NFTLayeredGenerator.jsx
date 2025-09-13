@@ -8,6 +8,7 @@ import {
   Zap,
   Plus,
 } from 'lucide-react';
+import OpenAI from 'openai';
 
 /**
  * NFTLayeredGenerator is a React component that allows users to
@@ -46,6 +47,17 @@ const NFTLayeredGenerator = () => {
     accesorios: { común: 50, raro: 30, épico: 15, legendario: 5 },
     fondo: { común: 70, raro: 20, épico: 8, legendario: 2 },
   });
+
+  // OpenAI instance
+  const openai = new OpenAI({
+    apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true,
+  });
+  // AI generation states
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiImageUrl, setAiImageUrl] = useState(null);
+  const [ipfsHash, setIpfsHash] = useState(null);
+  const [nftData, setNftData] = useState(null);
 
   /**
    * Demo SVG layers. These act as default art for the different
@@ -452,6 +464,19 @@ const NFTLayeredGenerator = () => {
   };
 
   /**
+   * Remove an uploaded file from a specific category.
+   *
+   * @param {string} category The category of the file.
+   * @param {number} index The index of the file to remove.
+   */
+  const removeUploadedFile = (category, index) => {
+    setUploadedLayers((prev) => ({
+      ...prev,
+      [category]: prev[category].filter((_, i) => i !== index),
+    }));
+  };
+
+  /**
    * Generate an entire collection of NFTs. Ensures that each NFT in
    * the collection is unique by checking the combination of traits.
    * If uniqueness cannot be achieved within a reasonable number of
@@ -601,14 +626,14 @@ const NFTLayeredGenerator = () => {
   };
 
   /**
-   * Update the rarity configuration for a given category and rarity
-   * level. The value is parsed as an integer and defaults to zero
-   * if parsing fails.
-   *
-   * @param {string} category The category being updated.
-   * @param {string} rarity The rarity level (común, raro, épico, legendario).
-   * @param {string} value The input value from the user.
-   */
+    * Update the rarity configuration for a given category and rarity
+    * level. The value is parsed as an integer and defaults to zero
+    * if parsing fails.
+    *
+    * @param {string} category The category being updated.
+    * @param {string} rarity The rarity level (común, raro, épico, legendario).
+    * @param {string} value The input value from the user.
+    */
   const updateRarity = (category, rarity, value) => {
     setRarityConfig((prev) => ({
       ...prev,
@@ -617,6 +642,87 @@ const NFTLayeredGenerator = () => {
         [rarity]: parseInt(value) || 0,
       },
     }));
+  };
+
+  /**
+   * Generate an image using OpenAI DALL-E based on the user's prompt.
+   */
+  const generateAIImage = async () => {
+    if (!aiPrompt.trim()) {
+      alert('Ingresa un prompt para generar la imagen');
+      return;
+    }
+    try {
+      const response = await openai.images.generate({
+        model: 'dall-e-3',
+        prompt: aiPrompt,
+        size: '1024x1024',
+        quality: 'standard',
+        n: 1,
+      });
+      const imageUrl = response.data[0].url;
+      setAiImageUrl(imageUrl);
+      // Then upload to IPFS
+      await uploadToIPFS(imageUrl);
+    } catch (error) {
+      console.error('Error generating image:', error);
+      alert('Error generando imagen: ' + error.message);
+    }
+  };
+
+  /**
+   * Upload the generated image to IPFS using Pinata.
+   * @param {string} imageUrl The URL of the image to upload.
+   */
+  const uploadToIPFS = async (imageUrl) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const formData = new FormData();
+      formData.append('file', blob, 'ai-generated-image.png');
+      const pinataResponse = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_PINATA_JWT}`,
+        },
+        body: formData,
+      });
+      const result = await pinataResponse.json();
+      if (result.IpfsHash) {
+        setIpfsHash(result.IpfsHash);
+        // Create NFT data
+        const nft = {
+          id: Date.now(),
+          name: `AI Generated NFT #${Date.now()}`,
+          description: `Imagen generada con IA usando prompt: ${aiPrompt}`,
+          image: `ipfs://${result.IpfsHash}`,
+          attributes: [
+            { trait_type: 'Prompt', value: aiPrompt },
+            { trait_type: 'AI Model', value: 'DALL-E 3' },
+          ],
+        };
+        setNftData(nft);
+        alert('Imagen subida a IPFS exitosamente! Hash: ' + result.IpfsHash);
+      } else {
+        alert('Error subiendo a IPFS: ' + JSON.stringify(result));
+      }
+    } catch (error) {
+      console.error('Error uploading to IPFS:', error);
+      alert('Error subiendo a IPFS: ' + error.message);
+    }
+  };
+
+  /**
+   * Mint the NFT on Bitcoin Cash using CashTokens.
+   * For now, this is a placeholder as actual minting requires blockchain interaction.
+   */
+  const mintOnBCH = () => {
+    if (!nftData) {
+      alert('Primero genera y sube una imagen con IA');
+      return;
+    }
+    // Placeholder: In a real implementation, this would interact with BCH wallet or API
+    alert(`Datos para mintear en BCH:\n${JSON.stringify(nftData, null, 2)}\n\nPara mintear, usa una wallet compatible con CashTokens como Electron Cash.`);
   };
 
   /**
@@ -709,6 +815,44 @@ const NFTLayeredGenerator = () => {
                 </div>
               </div>
             </div>
+            {/* AI Image Generation */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                🤖 Generar Imagen con IA
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-white mb-2 font-medium">Prompt para DALL-E</label>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="Describe la imagen que quieres generar..."
+                    className="w-full px-3 py-2 bg-white/20 rounded-lg text-white border border-white/30 focus:border-purple-400 focus:outline-none resize-none"
+                    rows="3"
+                  />
+                </div>
+                <button
+                  onClick={generateAIImage}
+                  className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-4 py-3 rounded-lg flex items-center justify-center font-medium transition-all"
+                >
+                  🎨 Generar Imagen con IA
+                </button>
+                {aiImageUrl && (
+                  <div className="text-center">
+                    <img src={aiImageUrl} alt="Generated" className="max-w-full rounded-lg" />
+                    {ipfsHash && <p className="text-green-300 mt-2">IPFS Hash: {ipfsHash}</p>}
+                    {nftData && (
+                      <button
+                        onClick={mintOnBCH}
+                        className="mt-4 w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center font-medium transition-all"
+                      >
+                        🪙 Mintear en Bitcoin Cash
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             {/* Upload de capas personalizadas */}
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
               <h3 className="text-lg font-bold text-white mb-4 flex items-center">
@@ -744,11 +888,29 @@ const NFTLayeredGenerator = () => {
                   <p className="text-purple-200 text-xs mt-1">
                     {uploadedLayers[selectedCategory]?.length || 0} imágenes subidas
                   </p>
+                  {uploadedLayers[selectedCategory] && uploadedLayers[selectedCategory].length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-white text-sm mb-2">Imágenes subidas para {selectedCategory}:</h4>
+                      <div className="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                        {uploadedLayers[selectedCategory].map((file, index) => (
+                          <div key={index} className="relative">
+                            <img src={file} alt={`Uploaded ${index}`} className="w-full h-16 object-cover rounded" />
+                            <button
+                              onClick={() => removeUploadedFile(selectedCategory, index)}
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="bg-blue-500/20 border border-blue-400 rounded-lg p-3">
                   <p className="text-blue-200 text-xs">
                     💡 <strong>Tip:</strong> Sube imágenes PNG transparentes para mejores resultados.
-                    Las imágenes se combinarán como capas para crear criaturas únicas.
+                    Puedes seleccionar múltiples archivos a la vez. Las imágenes se combinarán como capas para crear criaturas únicas.
                   </p>
                 </div>
               </div>
