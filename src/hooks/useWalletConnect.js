@@ -28,46 +28,18 @@ export const useWalletConnect = () => {
 
         setWeb3wallet(signClient);
 
-        // Listen for session proposals
-        signClient.on('session_proposal', async (event) => {
-          const { id, params } = event;
+        // Listen for session connections
+        signClient.on('session_connect', (event) => {
+          const session = event.session;
 
-          try {
-            // For BCH, we need to approve the session with BCH-specific namespaces
-            const approvedNamespaces = buildApprovedNamespaces({
-              proposal: params,
-              supportedNamespaces: {
-                bch: {
-                  chains: ['bch:mainnet'],
-                  methods: ['bch_signMessage', 'bch_signTransaction', 'bch_sendTransaction'],
-                  events: ['accountsChanged', 'chainChanged'],
-                  accounts: [`bch:mainnet:${walletAddress || 'placeholder'}`],
-                },
-              },
-            });
+          setSession(session);
+          setUri('');
+          setIsConnecting(false);
 
-            const { acknowledged } = await signClient.approve({
-              id,
-              namespaces: approvedNamespaces,
-            });
-
-            const sessionNamespace = await acknowledged();
-
-            setSession(sessionNamespace);
-            setUri('');
-            setIsConnecting(false);
-
-            // Extract wallet address from session
-            if (sessionNamespace?.namespaces?.bch?.accounts?.[0]) {
-              const address = sessionNamespace.namespaces.bch.accounts[0].split(':')[2];
-              setWalletAddress(address);
-            }
-          } catch (err) {
-            console.error('Error approving session:', err);
-            await signClient.reject({
-              id,
-              reason: getSdkError('USER_REJECTED'),
-            });
+          // Extract wallet address from session
+          if (session?.namespaces?.bch?.accounts?.[0]) {
+            const address = session.namespaces.bch.accounts[0].split(':')[2];
+            setWalletAddress(address);
           }
         });
 
