@@ -220,7 +220,7 @@ const NFTGenerator = () => {
       // Usar WalletConnect para enviar la transacción
       const result = await signClient.request({
         topic: session.topic,
-        chainId: 'bch:0',
+        chainId: 0,
         request: {
           method: 'sendTransaction',
           params: [txData]
