@@ -12,11 +12,11 @@ const NFTGenerator = () => {
   const [error, setError] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
 
-  // OpenAI instance
-  const openai = new OpenAI({
+  // OpenAI instance - only create if API key is available
+  const openai = import.meta.env.VITE_OPENAI_API_KEY ? new OpenAI({
     apiKey: import.meta.env.VITE_OPENAI_API_KEY,
     dangerouslyAllowBrowser: true,
-  });
+  }) : null;
 
   /**
    * Demo SVG layers. These act as default art for the different
@@ -588,6 +588,11 @@ const NFTGenerator = () => {
   const generateImage = async () => {
     if (!prompt.trim()) {
       setError('Por favor ingresa un prompt para generar la imagen');
+      return;
+    }
+
+    if (!openai) {
+      setError('API key de OpenAI no configurada. Contacta al administrador.');
       return;
     }
 
