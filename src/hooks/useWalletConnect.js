@@ -37,11 +37,11 @@ export const useWalletConnect = () => {
             const approvedNamespaces = buildApprovedNamespaces({
               proposal: params,
               supportedNamespaces: {
-                bch: {
-                  chains: ['bch:mainnet'],
-                  methods: ['bch_signMessage', 'bch_signTransaction', 'bch_sendTransaction'],
+                bip122: {
+                  chains: ['bip122:000000000000000000651ef99cb9fcbe0'],
+                  methods: ['signMessage', 'signTransaction', 'sendTransaction'],
                   events: ['accountsChanged', 'chainChanged'],
-                  accounts: [`bch:mainnet:${walletAddress || 'placeholder'}`],
+                  accounts: [`bip122:000000000000000000651ef99cb9fcbe0:${walletAddress || 'placeholder'}`],
                 },
               },
             });
@@ -58,8 +58,8 @@ export const useWalletConnect = () => {
             setIsConnecting(false);
 
             // Extract wallet address from session
-            if (sessionNamespace?.namespaces?.bch?.accounts?.[0]) {
-              const address = sessionNamespace.namespaces.bch.accounts[0].split(':')[2];
+            if (sessionNamespace?.namespaces?.bip122?.accounts?.[0]) {
+              const address = sessionNamespace.namespaces.bip122.accounts[0].split(':')[2];
               setWalletAddress(address);
             }
           } catch (err) {
@@ -132,9 +132,9 @@ export const useWalletConnect = () => {
     try {
       const { uri } = await web3wallet.connect({
         requiredNamespaces: {
-          bch: {
-            methods: ['bch_signMessage', 'bch_signTransaction', 'bch_sendTransaction'],
-            chains: ['bch:mainnet'],
+          bip122: {
+            methods: ['signMessage', 'signTransaction', 'sendTransaction'],
+            chains: ['bip122:000000000000000000651ef99cb9fcbe0'],
             events: ['accountsChanged', 'chainChanged']
           }
         }
