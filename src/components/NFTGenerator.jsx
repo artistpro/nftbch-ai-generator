@@ -20,8 +20,17 @@ const NFTGenerator = () => {
   useEffect(() => {
     const initWalletKit = async () => {
       try {
+        const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
+        console.log('Initializing WalletKit with projectId:', projectId);
+
+        if (!projectId) {
+          console.error('VITE_REOWN_PROJECT_ID not found in environment variables');
+          setError('Project ID de Reown no configurado. Contacta al administrador.');
+          return;
+        }
+
         const walletKitInstance = await WalletKit.init({
-          projectId: import.meta.env.VITE_REOWN_PROJECT_ID || 'demo-project-id',
+          projectId: projectId,
           metadata: {
             name: 'BCH NFT Generator',
             description: 'Generate AI images and mint NFTs on Bitcoin Cash',
@@ -30,24 +39,31 @@ const NFTGenerator = () => {
           },
         });
 
+        console.log('WalletKit initialized successfully');
         setWalletKit(walletKitInstance);
 
         // Escuchar eventos de sesión
         walletKitInstance.on('session_proposal', async (event) => {
+          console.log('Session proposal received:', event);
           // Aceptar automáticamente para simplificar
           const { id, params } = event;
           const approvedNamespaces = {
             bch: {
-              accounts: params.requiredNamespaces.bch.chains.map(chain => `${chain}:${walletAddress}`),
-              methods: params.requiredNamespaces.bch.methods,
-              events: params.requiredNamespaces.bch.events,
+              accounts: params.requiredNamespaces.bch?.chains?.map(chain => `${chain}:demo-address`) || [],
+              methods: params.requiredNamespaces.bch?.methods || [],
+              events: params.requiredNamespaces.bch?.events || [],
             },
           };
 
-          await walletKitInstance.approveSession({
-            id,
-            namespaces: approvedNamespaces,
-          });
+          try {
+            await walletKitInstance.approveSession({
+              id,
+              namespaces: approvedNamespaces,
+            });
+            console.log('Session approved');
+          } catch (error) {
+            console.error('Error approving session:', error);
+          }
         });
 
         walletKitInstance.on('session_request', async (event) => {
@@ -55,8 +71,16 @@ const NFTGenerator = () => {
           console.log('Session request:', event);
         });
 
+        walletKitInstance.on('session_delete', () => {
+          console.log('Session deleted');
+          setWalletConnected(false);
+          setSession(null);
+          setWalletAddress('');
+        });
+
       } catch (error) {
         console.error('Error initializing WalletKit:', error);
+        setError('Error inicializando WalletKit: ' + error.message);
       }
     };
 
@@ -161,7 +185,7 @@ const NFTGenerator = () => {
   // Conexión de wallet BCH con WalletConnect
   const connectWallet = async () => {
     if (!walletKit) {
-      setError('WalletKit no inicializado');
+      setError('WalletKit no inicializado. Revisa la configuración del Project ID.');
       return;
     }
 
@@ -169,6 +193,8 @@ const NFTGenerator = () => {
     setError('');
 
     try {
+      console.log('Attempting to connect wallet...');
+
       const requiredNamespaces = {
         bch: {
           methods: [
@@ -185,24 +211,34 @@ const NFTGenerator = () => {
         requiredNamespaces,
       });
 
+      console.log('Connection URI:', uri);
+
       if (uri) {
         // Mostrar QR code o deep link
+        console.log('Opening WalletConnect modal...');
+        // Para este prototipo, abrimos en nueva ventana
+        // En producción usarías un modal con QR
         window.open(`https://walletconnect.com/wc?uri=${encodeURIComponent(uri)}`, '_blank');
       }
 
+      console.log('Waiting for approval...');
       const sessionNamespace = await approval();
+      console.log('Session approved:', sessionNamespace);
+
       setSession(sessionNamespace);
       setWalletConnected(true);
 
       // Obtener dirección de la wallet
-      const accounts = sessionNamespace.namespaces.bch.accounts;
+      const accounts = sessionNamespace.namespaces.bch?.accounts;
       if (accounts && accounts.length > 0) {
         const address = accounts[0].split(':')[2];
         setWalletAddress(address);
+        console.log('Wallet address:', address);
       }
 
       setLoading(false);
     } catch (err) {
+      console.error('Error conectando wallet:', err);
       setError('Error conectando wallet: ' + err.message);
       setLoading(false);
     }
@@ -445,6 +481,14 @@ const NFTGenerator = () => {
                   <p className="text-sm text-blue-700">
                     CashTokens es el protocolo nativo de Bitcoin Cash para tokens fungibles y no fungibles (NFTs).
                     Permite crear NFTs con metadatos almacenados en IPFS.
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg mb-4">
+                  <p className="text-sm text-green-800 mb-2">🔗 Estado WalletConnect</p>
+                  <p className="text-sm text-green-700">
+                    {walletKit ? '✅ WalletKit inicializado' : '❌ WalletKit no inicializado'}
+                    <br />
+                    Project ID: {import.meta.env.VITE_REOWN_PROJECT_ID ? '✅ Configurado' : '❌ No configurado'}
                   </p>
                 </div>
                 <p className="text-gray-600">
