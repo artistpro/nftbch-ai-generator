@@ -120,7 +120,7 @@ export const useWalletConnect = () => {
   };
 
   return {
-    web3wallet,
+    signClient: web3wallet,
     session,
     uri,
     isConnecting,

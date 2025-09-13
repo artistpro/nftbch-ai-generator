@@ -15,6 +15,7 @@ const NFTGenerator = () => {
 
   // Wallet Connect hook
   const {
+    signClient,
     session,
     uri,
     isConnecting,
@@ -164,9 +165,9 @@ const NFTGenerator = () => {
     }
   };
 
-  // Minting real de NFT con CashTokens usando Electron Cash
+  // Minting real de NFT con CashTokens usando WalletConnect
   const mintNFT = async () => {
-    if (!isConnected || !mintingData) {
+    if (!isConnected || !mintingData || !session || !signClient) {
       setError('Por favor conecta tu wallet y genera una imagen primero');
       return;
     }
@@ -178,7 +179,7 @@ const NFTGenerator = () => {
       // Preparar la transacción CashTokens
       const tokenId = `0x${Math.random().toString(16).substring(2, 66)}`; // Token ID único
 
-      // Crear la transacción usando Electron Cash API
+      // Crear la transacción CashTokens
       const txData = {
         outputs: [
           {
@@ -194,33 +195,23 @@ const NFTGenerator = () => {
         ]
       };
 
-      // Enviar la transacción usando Electron Cash API
-      const response = await fetch('http://localhost:7777', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 3,
-          method: 'payto',
+      // Usar WalletConnect para enviar la transacción
+      const result = await signClient.request({
+        topic: session.topic,
+        chainId: 'bch:mainnet',
+        request: {
+          method: 'bch_sendTransaction',
           params: [txData]
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Error enviando transacción a Electron Cash');
-      }
-
-      const result = await response.json();
-
-      if (result.result) {
-        setNftTxId(result.result);
+      if (result) {
+        setNftTxId(result);
         setStep(4);
         setLoading(false);
-        console.log('NFT minteado exitosamente con TXID:', result.result);
+        console.log('NFT minteado exitosamente con TXID:', result);
       } else {
-        throw new Error(result.error?.message || 'Error desconocido en la transacción');
+        throw new Error('No se recibió TXID de la transacción');
       }
 
     } catch (err) {
