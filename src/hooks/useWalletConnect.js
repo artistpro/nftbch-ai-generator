@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Core } from '@walletconnect/core';
 import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
-import { WalletKit } from '@reown/walletkit';
+import { SignClient } from '@walletconnect/sign-client';
 
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
 
@@ -17,13 +16,8 @@ export const useWalletConnect = () => {
   useEffect(() => {
     const initWalletConnect = async () => {
       try {
-        const core = new Core({
+        const signClient = await SignClient.init({
           projectId,
-          relayUrl: 'wss://relay.walletconnect.com',
-        });
-
-        const web3walletInstance = await WalletKit.init({
-          core,
           metadata: {
             name: 'BCH NFT Generator',
             description: 'Generate AI-powered NFTs on Bitcoin Cash',
@@ -32,10 +26,10 @@ export const useWalletConnect = () => {
           },
         });
 
-        setWeb3wallet(web3walletInstance);
+        setWeb3wallet(signClient);
 
         // Listen for session proposals
-        web3walletInstance.on('session_proposal', async (event) => {
+        signClient.on('session_proposal', async (event) => {
           const { id, params } = event;
 
           try {
@@ -52,23 +46,25 @@ export const useWalletConnect = () => {
               },
             });
 
-            const sessionNamespace = await web3walletInstance.approveSession({
+            const { acknowledged } = await signClient.approve({
               id,
               namespaces: approvedNamespaces,
             });
+
+            const sessionNamespace = await acknowledged();
 
             setSession(sessionNamespace);
             setUri('');
             setIsConnecting(false);
 
             // Extract wallet address from session
-            if (sessionNamespace?.bch?.accounts?.[0]) {
-              const address = sessionNamespace.bch.accounts[0].split(':')[2];
+            if (sessionNamespace?.namespaces?.bch?.accounts?.[0]) {
+              const address = sessionNamespace.namespaces.bch.accounts[0].split(':')[2];
               setWalletAddress(address);
             }
           } catch (err) {
             console.error('Error approving session:', err);
-            await web3walletInstance.rejectSession({
+            await signClient.reject({
               id,
               reason: getSdkError('USER_REJECTED'),
             });
@@ -76,7 +72,7 @@ export const useWalletConnect = () => {
         });
 
         // Listen for session deletions
-        web3walletInstance.on('session_delete', () => {
+        signClient.on('session_delete', () => {
           setSession(null);
           setWalletAddress('');
         });
@@ -117,7 +113,7 @@ export const useWalletConnect = () => {
     if (!web3wallet || !session) return;
 
     try {
-      await web3wallet.disconnectSession({
+      await web3wallet.disconnect({
         topic: session.topic,
         reason: getSdkError('USER_DISCONNECTED'),
       });
@@ -134,7 +130,15 @@ export const useWalletConnect = () => {
     if (!web3wallet) return;
 
     try {
-      const { uri } = await web3wallet.pair();
+      const { uri } = await web3wallet.connect({
+        requiredNamespaces: {
+          bch: {
+            methods: ['bch_signMessage', 'bch_signTransaction', 'bch_sendTransaction'],
+            chains: ['bch:mainnet'],
+            events: ['accountsChanged', 'chainChanged']
+          }
+        }
+      });
       setUri(uri);
       return uri;
     } catch (err) {
